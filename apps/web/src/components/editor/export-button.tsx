@@ -34,6 +34,12 @@ import {
 } from "@/components/section";
 import { useEditor } from "@/editor/use-editor";
 import { DEFAULT_EXPORT_OPTIONS } from "@/export/defaults";
+import {
+	AUDIO_EXPORT_MIME_TYPES,
+	exportTimelineAudio,
+	isAudioExportFormat,
+	type AudioExportFormat,
+} from "@/export/audio";
 
 function isExportFormat(value: string): value is ExportFormat {
 	return EXPORT_FORMAT_VALUES.some((formatValue) => formatValue === value);
@@ -100,10 +106,23 @@ function ExportPopover({
 	const editor = useEditor();
 	const activeProject = useEditor((e) => e.project.getActive());
 	const exportState = useEditor((e) => e.project.getExportState());
-	const { isExporting, progress, result: exportResult } = exportState;
-	const [format, setFormat] = useState<ExportFormat>(
+	const {
+		isExporting: isExportingVideo,
+		progress,
+		result: videoExportResult,
+	} = exportState;
+	const [format, setFormat] = useState<ExportFormat | AudioExportFormat>(
 		DEFAULT_EXPORT_OPTIONS.format,
 	);
+	const [isExportingAudio, setIsExportingAudio] = useState(false);
+	const [audioExportError, setAudioExportError] = useState<string | null>(
+		null,
+	);
+	const isExporting = isExportingVideo || isExportingAudio;
+	const isAudioOnly = isAudioExportFormat(format);
+	const exportResult = audioExportError
+		? { success: false, error: audioExportError }
+		: videoExportResult;
 	const [quality, setQuality] = useState<ExportQuality>(
 		DEFAULT_EXPORT_OPTIONS.quality,
 	);
@@ -111,8 +130,44 @@ function ExportPopover({
 		DEFAULT_EXPORT_OPTIONS.includeAudio ?? true,
 	);
 
+	const handleAudioExport = async ({
+		audioFormat,
+	}: {
+		audioFormat: AudioExportFormat;
+	}) => {
+		if (!activeProject) return;
+
+		setAudioExportError(null);
+		setIsExportingAudio(true);
+		try {
+			const buffer = await exportTimelineAudio({
+				editor,
+				format: audioFormat,
+				quality,
+			});
+			downloadBuffer({
+				buffer,
+				filename: `${activeProject.metadata.name}.${audioFormat}`,
+				mimeType: AUDIO_EXPORT_MIME_TYPES[audioFormat],
+			});
+			onOpenChange(false);
+		} catch (error) {
+			console.error("Audio export failed:", error);
+			setAudioExportError(
+				error instanceof Error ? error.message : "Audio export failed",
+			);
+		} finally {
+			setIsExportingAudio(false);
+		}
+	};
+
 	const handleExport = async () => {
 		if (!activeProject) return;
+
+		if (isAudioExportFormat(format)) {
+			await handleAudioExport({ audioFormat: format });
+			return;
+		}
 
 		const result = await editor.project.export({
 			options: {
@@ -175,7 +230,7 @@ function ExportPopover({
 											<RadioGroup
 												value={format}
 												onValueChange={(value) => {
-													if (isExportFormat(value)) {
+													if (isExportFormat(value) || isAudioExportFormat(value)) {
 														setFormat(value);
 													}
 												}}
@@ -192,10 +247,21 @@ function ExportPopover({
 														WebM (VP9) - Smaller file size
 													</Label>
 												</div>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem value="mp3" id="mp3" />
+													<Label htmlFor="mp3">MP3 - Audio only</Label>
+												</div>
+												<div className="flex items-center space-x-2">
+													<RadioGroupItem value="wav" id="wav" />
+													<Label htmlFor="wav">
+														WAV - Audio only, uncompressed
+													</Label>
+												</div>
 											</RadioGroup>
 										</SectionContent>
 									</Section>
 
+									{format !== "wav" && (
 									<Section collapsible defaultOpen={false}>
 										<SectionHeader>
 											<SectionTitle>Quality</SectionTitle>
@@ -230,7 +296,9 @@ function ExportPopover({
 											</RadioGroup>
 										</SectionContent>
 									</Section>
+									)}
 
+									{!isAudioOnly && (
 									<Section collapsible defaultOpen={false}>
 										<SectionHeader>
 											<SectionTitle>Audio</SectionTitle>
@@ -250,6 +318,7 @@ function ExportPopover({
 											</div>
 										</SectionContent>
 									</Section>
+									)}
 								</div>
 
 								<div className="p-3 pt-0">
@@ -261,7 +330,13 @@ function ExportPopover({
 							</>
 						)}
 
-						{isExporting && (
+						{isExportingAudio && (
+							<p className="text-muted-foreground p-3 text-sm">
+								Mixing and encoding audio...
+							</p>
+						)}
+
+						{isExportingVideo && (
 							<div className="space-y-4 p-3">
 								<div className="flex flex-col gap-2">
 									<div className="flex items-center justify-between text-center">

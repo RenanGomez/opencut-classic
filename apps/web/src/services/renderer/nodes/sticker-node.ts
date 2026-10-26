@@ -34,6 +34,8 @@ export function loadStickerSource({
 		});
 
 		const image = new Image();
+		// Remote stickers (e.g. Iconify) would otherwise taint the GPU texture upload
+		image.crossOrigin = "anonymous";
 
 		await new Promise<void>((resolve, reject) => {
 			image.onload = () => resolve();

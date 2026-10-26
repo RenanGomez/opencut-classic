@@ -7,6 +7,7 @@ import {
 	Folder03Icon,
 	Happy01Icon,
 	HeadphonesIcon,
+	Image01Icon,
 	MagicWand05Icon,
 	TextIcon,
 	Settings01Icon,
@@ -17,6 +18,7 @@ import { HugeiconsIcon, type IconSvgElement } from "@hugeicons/react";
 
 export const TAB_KEYS = [
 	"media",
+	"stock",
 	"sounds",
 	"text",
 	"stickers",
@@ -39,6 +41,10 @@ export const tabs = {
 	media: {
 		icon: createHugeiconsIcon({ icon: Folder03Icon }),
 		label: "Media",
+	},
+	stock: {
+		icon: createHugeiconsIcon({ icon: Image01Icon }),
+		label: "Stock",
 	},
 	sounds: {
 		icon: createHugeiconsIcon({ icon: HeadphonesIcon }),
