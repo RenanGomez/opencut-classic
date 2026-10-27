@@ -15,6 +15,10 @@ export const baseRateLimit = new Ratelimit({
 });
 
 export async function checkRateLimit({ request }: { request: Request }) {
+	// Local dev has no Redis (no Docker); skip rate limiting there
+	if (webEnv.NODE_ENV === "development") {
+		return { success: true, limited: false };
+	}
 	const ip = request.headers.get("x-forwarded-for") ?? "anonymous";
 	const { success } = await baseRateLimit.limit(ip);
 	return { success, limited: !success };
